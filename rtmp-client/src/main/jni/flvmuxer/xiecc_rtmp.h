@@ -51,6 +51,8 @@ void flv_file_close();
 
 void write_flv_header(bool is_have_audio, bool is_have_video);
 
+int rtmp_sender_set_chunk_size(int chunk_size);
+
 #ifdef __cplusplus
 }
 #endif

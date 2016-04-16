@@ -389,6 +389,29 @@ RTMP_UpdateBufferMS(RTMP *r)
   RTMP_SendCtrl(r, 3, r->m_stream_id, r->m_nBufferMS);
 }
 
+int
+RTMP_SetChunkSize(RTMP *r, int sz)
+{
+    r->m_outChunkSize = sz;
+    RTMPPacket packet;
+    char pbuf[256], *pend = pbuf + sizeof(pbuf);
+    int nSize;
+    char *buf;
+
+    packet.m_nChannel = 0x02;	/* control channel (ping) */
+    packet.m_headerType = RTMP_PACKET_SIZE_LARGE;
+    packet.m_packetType = RTMP_PACKET_TYPE_CHUNK_SIZE;
+    packet.m_nTimeStamp = 0;	/* RTMP_GetTime(); */
+    packet.m_nInfoField2 = 0;
+    packet.m_hasAbsTimestamp = 0;
+    packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
+    packet.m_nBodySize = 4;
+
+    buf = packet.m_body;
+  	buf = AMF_EncodeInt32(buf, pend, sz);
+    return RTMP_SendPacket(r, &packet, FALSE);
+}
+
 #undef OSS
 #ifdef _WIN32
 #define OSS	"WIN"

@@ -142,6 +142,13 @@ static uint8_t gen_audio_tag_header()
     val = 0xA0 | (soundRate << 2) | 0x02 | soundType;
     return val;
 }
+int rtmp_sender_set_chunk_size(int chunk_size) {
+    if (rtmp == NULL) {
+        return -1;
+    }
+    return RTMP_SetChunkSize(rtmp, chunk_size);
+}
+
 int rtmp_open_for_write(const char *url) {
     rtmp = RTMP_Alloc();
     if (rtmp == NULL) {

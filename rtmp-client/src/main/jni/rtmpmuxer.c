@@ -51,6 +51,11 @@ Java_net_butterflytv_rtmp_1client_RTMPMuxer_close(JNIEnv *env, jobject instance)
 }
 
 JNIEXPORT jint JNICALL
+Java_net_butterflytv_rtmp_1client_RTMPMuxer_setChunkSize(JNIEnv *env, jobject instance, jint size) {
+    return rtmp_sender_set_chunk_size(size);
+}
+
+JNIEXPORT jint JNICALL
 Java_net_butterflytv_rtmp_1client_RTMPMuxer_isConnected(JNIEnv *env, jobject instance) {
     return rtmp_is_connected();
 }

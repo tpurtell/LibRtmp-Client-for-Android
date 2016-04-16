@@ -11,6 +11,9 @@ public class RTMPMuxer {
 
     public native int open(String url);
 
+    public native int setChunkSize(int chunkSize);
+
+
     /**
      * write h264 nal units
      * @param data
