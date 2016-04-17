@@ -109,6 +109,7 @@ JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_close
         (JNIEnv * env, jobject thiz) {
 	RTMP_Close(rtmp);
 	RTMP_Free(rtmp);
+	rtmp = NULL;
     return 0;
 }
 

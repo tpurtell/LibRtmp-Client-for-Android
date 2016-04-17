@@ -223,6 +223,7 @@ int rtmp_close() {
     if (rtmp) {
         RTMP_Close(rtmp);
         RTMP_Free(rtmp);
+        rtmp = NULL;
     }
 }
 
