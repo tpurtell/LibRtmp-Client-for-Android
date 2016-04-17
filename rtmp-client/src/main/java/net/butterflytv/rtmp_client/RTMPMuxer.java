@@ -51,4 +51,6 @@ public class RTMPMuxer {
      * 0 if it is not connected
      */
     public native int isConnected();
+
+    private long rtmp;
 }

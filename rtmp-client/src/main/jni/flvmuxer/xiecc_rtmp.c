@@ -31,9 +31,6 @@ static const AVal av_onPrivateData = AVC("onPrivateData");
 static const AVal av_record = AVC("record");
 
 
-
-RTMP *rtmp;
-
 static FILE *g_file_handle = NULL;
 static uint64_t g_time_begin;
 
@@ -142,15 +139,15 @@ static uint8_t gen_audio_tag_header()
     val = 0xA0 | (soundRate << 2) | 0x02 | soundType;
     return val;
 }
-int rtmp_sender_set_chunk_size(int chunk_size) {
+int rtmp_sender_set_chunk_size(RTMP* rtmp, int chunk_size) {
     if (rtmp == NULL) {
         return -1;
     }
     return RTMP_SetChunkSize(rtmp, chunk_size);
 }
 
-int rtmp_open_for_write(const char *url) {
-    rtmp = RTMP_Alloc();
+int rtmp_open_for_write(const char *url, RTMP** out_rtmp) {
+    RTMP* rtmp = RTMP_Alloc();
     if (rtmp == NULL) {
         return -1;
     }
@@ -174,6 +171,7 @@ int rtmp_open_for_write(const char *url) {
     ret = RTMP_ConnectStream(rtmp, 0);
 
     if (!ret) {
+        RTMP_Free(rtmp);
         return -4;
     }
 
@@ -214,12 +212,18 @@ int rtmp_open_for_write(const char *url) {
 
         memcpy(send_buffer + offset, buffer, body_len);
 
-        return RTMP_Write(rtmp, send_buffer, output_len);
+        int result =  RTMP_Write(rtmp, send_buffer, output_len);
+        if(result < 0) {
+            RTMP_Free(rtmp);
+            return result;
+        }
+        *out_rtmp = rtmp;
+        return result;
     }
     return -1;
 }
 
-int rtmp_close() {
+int rtmp_close(RTMP* rtmp) {
     if (rtmp) {
         RTMP_Close(rtmp);
         RTMP_Free(rtmp);
@@ -227,7 +231,7 @@ int rtmp_close() {
     }
 }
 
-int rtmp_is_connected()
+int rtmp_is_connected(RTMP* rtmp)
 {
     if (rtmp) {
         if (RTMP_IsConnected(rtmp)) {
@@ -243,7 +247,7 @@ int rtmp_is_connected()
 // @param [in] size       : AACAUDIODATA size
 // @param [in] dts_us     : decode timestamp of frame
 // @param [in] abs_ts     : indicate whether you'd like to use absolute time stamp
-int rtmp_sender_write_audio_frame(uint8_t *data,
+int rtmp_sender_write_audio_frame(RTMP* rtmp, uint8_t *data,
                                   int size,
                                   uint64_t dts_us,
                                   uint32_t abs_ts)
@@ -417,7 +421,7 @@ static uint8_t * get_nal(uint32_t *len, uint8_t **offset, uint8_t *start, uint32
 // @param [in] dts_us     : decode timestamp of frame
 // @param [in] key        : key frame indicate, [0: non key] [1: key]
 // @param [in] abs_ts     : indicate whether you'd like to use absolute time stamp
-int rtmp_sender_write_video_frame(uint8_t *data,
+int rtmp_sender_write_video_frame(RTMP* rtmp, uint8_t *data,
                                   int size,
                                   uint64_t dts_us,
                                   int key,

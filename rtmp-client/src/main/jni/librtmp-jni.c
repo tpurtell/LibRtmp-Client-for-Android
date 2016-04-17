@@ -5,7 +5,6 @@
 // Created by faraklit on 01.01.2016.
 //
 
-RTMP *rtmp;
 /*
  * Class:     net_butterflytv_rtmp_client_RtmpClient
  * Method:    open
@@ -13,6 +12,13 @@ RTMP *rtmp;
  */
 JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_open
         (JNIEnv * env, jobject thiz, jstring url_, jboolean isPublishMode) {
+    jfieldID fid = (*env)->GetFieldID(env, (*env)->GetObjectClass(env, thiz), "rtmp", "J");
+    jlong raw_rtmp =  (*env)->GetLongField(env, thiz, fid);
+    RTMP *rtmp = (RTMP*)(*(void**)&raw_rtmp);
+
+    if(rtmp != NULL) {
+        return -5;
+    }
 
     const char *url = (*env)->GetStringUTFChars(env, url_, 0);
     rtmp = RTMP_Alloc();
@@ -42,6 +48,8 @@ JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_open
         return -4;
     }
     (*env)->ReleaseStringUTFChars(env, url_, url);
+    raw_rtmp = (jlong)rtmp;
+    (*env)->SetLongField(env, thiz, fid, raw_rtmp);
     return 1;
 }
 
@@ -54,6 +62,13 @@ JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_open
  */
 JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_read
         (JNIEnv * env, jobject thiz, jbyteArray data_, jint offset, jint size) {
+    jfieldID fid = (*env)->GetFieldID(env, (*env)->GetObjectClass(env, thiz), "rtmp", "J");
+    jlong raw_rtmp =  (*env)->GetLongField(env, thiz, fid);
+    RTMP *rtmp = (RTMP*)(*(void**)&raw_rtmp);
+
+    if(rtmp == NULL) {
+        return -10000;
+    }
 
     char* data = malloc(size*sizeof(char));
 
@@ -74,6 +89,13 @@ JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_read
  */
 JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_write
         (JNIEnv * env, jobject thiz, jcharArray data, jint size) {
+    jfieldID fid = (*env)->GetFieldID(env, (*env)->GetObjectClass(env, thiz), "rtmp", "J");
+    jlong raw_rtmp =  (*env)->GetLongField(env, thiz, fid);
+    RTMP *rtmp = (RTMP*)(*(void**)&raw_rtmp);
+
+    if(rtmp == NULL) {
+        return -10000;
+    }
 
     return RTMP_Write(rtmp, data, size);
 }
@@ -85,6 +107,13 @@ JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_write
  */
 JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_seek
         (JNIEnv * env, jobject thiz, jint seekTime) {
+    jfieldID fid = (*env)->GetFieldID(env, (*env)->GetObjectClass(env, thiz), "rtmp", "J");
+    jlong raw_rtmp =  (*env)->GetLongField(env, thiz, fid);
+    RTMP *rtmp = (RTMP*)(*(void**)&raw_rtmp);
+
+    if(rtmp == NULL) {
+        return -10000;
+    }
 
     return 0;
 }
@@ -96,6 +125,13 @@ JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_seek
  */
 JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_pause
         (JNIEnv * env, jobject thiz, jint pauseTime) {
+    jfieldID fid = (*env)->GetFieldID(env, (*env)->GetObjectClass(env, thiz), "rtmp", "J");
+    jlong raw_rtmp =  (*env)->GetLongField(env, thiz, fid);
+    RTMP *rtmp = (RTMP*)(*(void**)&raw_rtmp);
+
+    if(rtmp == NULL) {
+        return -10000;
+    }
 
     return RTMP_Pause(rtmp, pauseTime);
 }
@@ -107,15 +143,32 @@ JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_pause
  */
 JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_close
         (JNIEnv * env, jobject thiz) {
+    jfieldID fid = (*env)->GetFieldID(env, (*env)->GetObjectClass(env, thiz), "rtmp", "J");
+    jlong raw_rtmp =  (*env)->GetLongField(env, thiz, fid);
+    RTMP *rtmp = (RTMP*)(*(void**)&raw_rtmp);
+
+    if(rtmp == NULL) {
+        return -10000;
+    }
+
 	RTMP_Close(rtmp);
 	RTMP_Free(rtmp);
-	rtmp = NULL;
+    raw_rtmp = 0;
+    (*env)->SetLongField(env, thiz, fid, raw_rtmp);
     return 0;
 }
 
 
 JNIEXPORT jint JNICALL
-Java_net_butterflytv_rtmp_1client_RtmpClient_isConnected(JNIEnv *env, jobject instance) {
+Java_net_butterflytv_rtmp_1client_RtmpClient_isConnected(JNIEnv *env, jobject thiz) {
+    jfieldID fid = (*env)->GetFieldID(env, (*env)->GetObjectClass(env, thiz), "rtmp", "J");
+    jlong raw_rtmp =  (*env)->GetLongField(env, thiz, fid);
+    RTMP *rtmp = (RTMP*)(*(void**)&raw_rtmp);
+
+    if(rtmp == NULL) {
+        return -10000;
+    }
+
      int connected = RTMP_IsConnected(rtmp);
      if (connected) {
         return 1;

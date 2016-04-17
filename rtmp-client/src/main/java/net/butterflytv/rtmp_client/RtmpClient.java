@@ -58,4 +58,5 @@ public class RtmpClient {
      */
     public native int close();
 
+    private long rtmp;
 }
