@@ -1,6 +1,6 @@
 #include <jni.h>
-
 #include "flvmuxer/xiecc_rtmp.h"
+#include "librtmp/log.h"
 
 
 /**
@@ -108,4 +108,10 @@ Java_net_butterflytv_rtmp_1client_RTMPMuxer_isConnected(JNIEnv *env, jobject thi
     }
 
     return rtmp_is_connected(rtmp);
+}
+
+JNIEXPORT void JNICALL
+Java_net_butterflytv_rtmp_1client_RTMPMuxer_setLogLevel(JNIEnv *env, jclass clazz, jint level) {
+    RTMP_debuglevel = level;
+    return;
 }

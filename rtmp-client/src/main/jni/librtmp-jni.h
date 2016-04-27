@@ -85,6 +85,9 @@ Java_net_butterflytv_rtmp_1client_RTMPMuxer_file_1close(JNIEnv *env, jobject ins
 JNIEXPORT jint JNICALL
 Java_net_butterflytv_rtmp_1client_RTMPMuxer_isConnected(JNIEnv *env, jobject instance);
 
+JNIEXPORT void JNICALL
+Java_net_butterflytv_rtmp_1client_RTMPMuxer_setLogLevel(JNIEnv *env, jobject instance, jint level);
+
 #ifdef __cplusplus
 }
 #endif

@@ -53,4 +53,14 @@ public class RTMPMuxer {
     public native int isConnected();
 
     private long rtmp;
+    
+    public static final int LOG_CRITICAL = 0;
+    public static final int LOG_ERROR = 1;
+    public static final int LOG_WARNING = 2;
+    public static final int LOG_INFO = 3;
+    public static final int LOG_DEBUG = 4;
+    public static final int LOG_DEBUG2 = 5;
+    public static final int LOG_ALL = 6;
+
+    public static native void setLogLevel(int level);
 }

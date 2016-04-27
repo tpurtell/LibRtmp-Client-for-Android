@@ -89,18 +89,6 @@ RTMP_LogLevel RTMP_LogGetLevel()
 	return RTMP_debuglevel;
 }
 
-void RTMP_Log(int level, const char *format, ...)
-{
-	va_list args;
-
-	if ( level > RTMP_debuglevel )
-		return;
-
-	va_start(args, format);
-	cb(level, format, args);
-	va_end(args);
-}
-
 static const char hexdig[] = "0123456789abcdef";
 
 void RTMP_LogHex(int level, const uint8_t *data, unsigned long len)
