@@ -453,7 +453,7 @@ int rtmp_sender_write_video_frame(RTMP* rtmp, uint8_t *data,
     if (nal == NULL) {
         return -1;
     }
-    if (nal[0] == 0x67)  {
+    if ((nal[0] & 0x1f) == 0x07 && (nal[0] & 0x60))  {
         if (video_config_ok == true) {
             RTMP_Log(RTMP_LOGERROR, "video config is already set");
             //only send video seq set once;
