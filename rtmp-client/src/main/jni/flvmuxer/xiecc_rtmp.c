@@ -524,7 +524,7 @@ int rtmp_sender_write_video_frame(RTMP* rtmp, uint8_t *data,
         free(output);
         video_config_ok = true;
     }
-    else if (nal[0] == 0x65)
+    else if ((nal[0] & 0x1f) == 5 || ((nal[0] & 0x1f) == 28 || (nal[0] & 0x1f) == 29) && (nal[1] & 0x1f) == 5 && nal[1] & 0x80)
     {
         body_len = nal_len + 5 + 4; //flv VideoTagHeader +  NALU length
         output_len = body_len + FLV_TAG_HEAD_LEN + FLV_PRE_TAG_LEN;
