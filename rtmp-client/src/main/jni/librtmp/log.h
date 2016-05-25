@@ -56,7 +56,7 @@ void RTMP_LogStatus(const char *format, ...) __attribute__ ((__format__ (__print
 void RTMP_LogPrintf(const char *format, ...);
 void RTMP_LogStatus(const char *format, ...);
 #endif
-#define RTMP_Log(level, ...) __android_log_print(ANDROID_LOG_VERBOSE, "librtmp", ##__VA_ARGS__ )
+#define RTMP_Log(level, ...) if( level <= RTMP_debuglevel ) __android_log_print(ANDROID_LOG_VERBOSE, "librtmp", ##__VA_ARGS__ )
 
 void RTMP_LogHex(int level, const uint8_t *data, unsigned long len);
 void RTMP_LogHexString(int level, const uint8_t *data, unsigned long len);
