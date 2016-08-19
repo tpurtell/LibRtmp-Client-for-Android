@@ -394,7 +394,7 @@ static uint8_t * get_nal(uint32_t *len, uint8_t **offset, uint8_t *start, uint32
         if (info == 1)
             break;
         p++;
-        if ((p - start) >= total)
+        if ((p - start) >= total - 4)
             return NULL;
     }
     q = p + 4;
@@ -404,7 +404,7 @@ static uint8_t * get_nal(uint32_t *len, uint8_t **offset, uint8_t *start, uint32
         if (info == 1)
             break;
         p++;
-        if ((p - start) >= total)
+        if ((p - start) >= total - 4)
             //return NULL;
             break;
     }
