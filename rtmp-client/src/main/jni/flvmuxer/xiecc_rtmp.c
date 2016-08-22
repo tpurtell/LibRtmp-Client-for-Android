@@ -459,12 +459,12 @@ int rtmp_sender_write_video_frame(RTMP* rtmp, uint8_t *data,
             if (video_config_ok == true) {
                 RTMP_Log(RTMP_LOGERROR, "video config is already set");
                 //only send video seq set once;
-                return -1;
+                continue;
             }
             nal_n  = get_nal(&nal_len_n, &buf_offset, buf, total); //get pps
             if (nal_n == NULL) {
                 RTMP_Log(RTMP_LOGERROR, "No Nal after SPS\n");
-                return -1;
+                continue;
             }
             body_len = nal_len + nal_len_n + 16;
             output_len = body_len + FLV_TAG_HEAD_LEN + FLV_PRE_TAG_LEN;
