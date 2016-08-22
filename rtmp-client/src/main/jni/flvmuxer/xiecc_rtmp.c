@@ -448,9 +448,10 @@ int rtmp_sender_write_video_frame(RTMP* rtmp, uint8_t *data,
     ts = (uint32_t)dts_us;
 
     //ts = RTMP_GetTime() - start_time;
-    offset = 0;
 
     while(buf_offset < data + total) {
+        offset = 0;
+        
         nal = get_nal(&nal_len, &buf_offset, buf, total);
         if (nal == NULL) {
             return (val > 0) ? 0: -1;
