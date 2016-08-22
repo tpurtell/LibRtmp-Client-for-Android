@@ -430,7 +430,7 @@ int rtmp_sender_write_video_frame(RTMP* rtmp, uint8_t *data,
 {
     uint8_t * buf;
     uint8_t * buf_offset;
-    int val = 0;
+    int val = -1;
     int total;
     uint32_t ts;
     uint32_t nal_len;
@@ -450,183 +450,184 @@ int rtmp_sender_write_video_frame(RTMP* rtmp, uint8_t *data,
     //ts = RTMP_GetTime() - start_time;
     offset = 0;
 
-    nal = get_nal(&nal_len, &buf_offset, buf, total);
-    if (nal == NULL) {
-        return -1;
+    while(buf_offset < data + total) {
+        nal = get_nal(&nal_len, &buf_offset, buf, total);
+        if (nal == NULL) {
+            return (val > 0) ? 0: -1;
+        }
+        if ((nal[0] & 0x1f) == 0x07 && (nal[0] & 0x60))  {
+            if (video_config_ok == true) {
+                RTMP_Log(RTMP_LOGERROR, "video config is already set");
+                //only send video seq set once;
+                return -1;
+            }
+            nal_n  = get_nal(&nal_len_n, &buf_offset, buf, total); //get pps
+            if (nal_n == NULL) {
+                RTMP_Log(RTMP_LOGERROR, "No Nal after SPS\n");
+                return -1;
+            }
+            body_len = nal_len + nal_len_n + 16;
+            output_len = body_len + FLV_TAG_HEAD_LEN + FLV_PRE_TAG_LEN;
+            output = malloc(output_len);
+            if (!output) {
+                LOGD("Memory is not allocated...");
+            }
+            // flv tag header
+            output[offset++] = 0x09; //tagtype video
+            output[offset++] = (uint8_t)(body_len >> 16); //data len
+            output[offset++] = (uint8_t)(body_len >> 8); //data len
+            output[offset++] = (uint8_t)(body_len); //data len
+            output[offset++] = (uint8_t)(ts >> 16); //time stamp
+            output[offset++] = (uint8_t)(ts >> 8); //time stamp
+            output[offset++] = (uint8_t)(ts); //time stamp
+            output[offset++] = (uint8_t)(ts >> 24); //time stamp
+            output[offset++] = abs_ts; //stream id 0
+            output[offset++] = 0x00; //stream id 0
+            output[offset++] = 0x00; //stream id 0
+
+            //flv VideoTagHeader
+            output[offset++] = 0x17; //key frame, AVC
+            output[offset++] = 0x00; //avc sequence header
+            output[offset++] = 0x00; //composit time ??????????
+            output[offset++] = 0x00; // composit time
+            output[offset++] = 0x00; //composit time
+
+            //flv VideoTagBody --AVCDecoderCOnfigurationRecord
+            output[offset++] = 0x01; //configurationversion
+            output[offset++] = nal[1]; //avcprofileindication
+            output[offset++] = nal[2]; //profilecompatibilty
+            output[offset++] = nal[3]; //avclevelindication
+            output[offset++] = 0xff; //reserved + lengthsizeminusone
+            output[offset++] = 0xe1; //numofsequenceset
+            output[offset++] = (uint8_t)(nal_len >> 8); //sequence parameter set length high 8 bits
+            output[offset++] = (uint8_t)(nal_len); //sequence parameter set  length low 8 bits
+            memcpy(output + offset, nal, nal_len); //H264 sequence parameter set
+            offset += nal_len;
+            output[offset++] = 0x01; //numofpictureset
+            output[offset++] = (uint8_t)(nal_len_n >> 8); //picture parameter set length high 8 bits
+            output[offset++] = (uint8_t)(nal_len_n); //picture parameter set length low 8 bits
+            memcpy(output + offset, nal_n, nal_len_n); //H264 picture parameter set
+
+            //no need set pre_tag_size ,RTMP NO NEED
+            // flv test
+
+            offset += nal_len_n;
+            uint32_t fff = body_len + FLV_TAG_HEAD_LEN;
+            output[offset++] = (uint8_t)(fff >> 24); //data len
+            output[offset++] = (uint8_t)(fff >> 16); //data len
+            output[offset++] = (uint8_t)(fff >> 8); //data len
+            output[offset++] = (uint8_t)(fff); //data len
+
+            if (g_file_handle) {
+                fwrite(output, output_len, 1, g_file_handle);
+            }
+            val = RTMP_Write(rtmp, output, output_len);
+            //RTMP Send out
+            free(output);
+            video_config_ok = true;
+        }
+        else if ((nal[0] & 0x1f) == 5 || ((nal[0] & 0x1f) == 28 || (nal[0] & 0x1f) == 29) && (nal[1] & 0x1f) == 5 && nal[1] & 0x80)
+        {
+            body_len = nal_len + 5 + 4; //flv VideoTagHeader +  NALU length
+            output_len = body_len + FLV_TAG_HEAD_LEN + FLV_PRE_TAG_LEN;
+            output = malloc(output_len);
+            if (!output) {
+                LOGD("Memory is not allocated...");
+            }
+            // flv tag header
+            output[offset++] = 0x09; //tagtype video
+            output[offset++] = (uint8_t)(body_len >> 16); //data len
+            output[offset++] = (uint8_t)(body_len >> 8); //data len
+            output[offset++] = (uint8_t)(body_len); //data len
+            output[offset++] = (uint8_t)(ts >> 16); //time stamp
+            output[offset++] = (uint8_t)(ts >> 8); //time stamp
+            output[offset++] = (uint8_t)(ts); //time stamp
+            output[offset++] = (uint8_t)(ts >> 24); //time stamp
+            output[offset++] = abs_ts; //stream id 0
+            output[offset++] = 0x00; //stream id 0
+            output[offset++] = 0x00; //stream id 0
+
+            //flv VideoTagHeader
+            output[offset++] = 0x17; //key frame, AVC
+            output[offset++] = 0x01; //avc NALU unit
+            output[offset++] = 0x00; //composit time ??????????
+            output[offset++] = 0x00; // composit time
+            output[offset++] = 0x00; //composit time
+
+            output[offset++] = (uint8_t)(nal_len >> 24); //nal length
+            output[offset++] = (uint8_t)(nal_len >> 16); //nal length
+            output[offset++] = (uint8_t)(nal_len >> 8); //nal length
+            output[offset++] = (uint8_t)(nal_len); //nal length
+            memcpy(output + offset, nal, nal_len);
+
+            //no need set pre_tag_size ,RTMP NO NEED
+
+            offset += nal_len;
+            uint32_t fff = body_len + FLV_TAG_HEAD_LEN;
+            output[offset++] = (uint8_t)(fff >> 24); //data len
+            output[offset++] = (uint8_t)(fff >> 16); //data len
+            output[offset++] = (uint8_t)(fff >> 8); //data len
+            output[offset++] = (uint8_t)(fff); //data len
+
+            if (g_file_handle) {
+                fwrite(output, output_len, 1, g_file_handle);
+            }
+            val = RTMP_Write(rtmp, output, output_len);
+            //RTMP Send out
+            free(output);
+        }
+
+        else if ((nal[0] & 0x1f) == 0x01)
+        {
+            body_len = nal_len + 5 + 4; //flv VideoTagHeader +  NALU length
+            output_len = body_len + FLV_TAG_HEAD_LEN + FLV_PRE_TAG_LEN;
+            output = malloc(output_len);
+            if (!output) {
+                LOGD("Memory is not allocated...");
+            }
+            // flv tag header
+            output[offset++] = 0x09; //tagtype video
+            output[offset++] = (uint8_t)(body_len >> 16); //data len
+            output[offset++] = (uint8_t)(body_len >> 8); //data len
+            output[offset++] = (uint8_t)(body_len); //data len
+            output[offset++] = (uint8_t)(ts >> 16); //time stamp
+            output[offset++] = (uint8_t)(ts >> 8); //time stamp
+            output[offset++] = (uint8_t)(ts); //time stamp
+            output[offset++] = (uint8_t)(ts >> 24); //time stamp
+            output[offset++] = abs_ts; //stream id 0
+            output[offset++] = 0x00; //stream id 0
+            output[offset++] = 0x00; //stream id 0
+
+            //flv VideoTagHeader
+            output[offset++] = 0x27; //not key frame, AVC
+            output[offset++] = 0x01; //avc NALU unit
+            output[offset++] = 0x00; //composit time ??????????
+            output[offset++] = 0x00; // composit time
+            output[offset++] = 0x00; //composit time
+
+            output[offset++] = (uint8_t)(nal_len >> 24); //nal length
+            output[offset++] = (uint8_t)(nal_len >> 16); //nal length
+            output[offset++] = (uint8_t)(nal_len >> 8); //nal length
+            output[offset++] = (uint8_t)(nal_len); //nal length
+            memcpy(output + offset, nal, nal_len);
+
+            //no need set pre_tag_size ,RTMP NO NEED
+
+            offset += nal_len;
+            uint32_t fff = body_len + FLV_TAG_HEAD_LEN;
+            output[offset++] = (uint8_t)(fff >> 24); //data len
+            output[offset++] = (uint8_t)(fff >> 16); //data len
+            output[offset++] = (uint8_t)(fff >> 8); //data len
+            output[offset++] = (uint8_t)(fff); //data len
+
+            if (g_file_handle) {
+                fwrite(output, output_len, 1, g_file_handle);
+            }
+            val = RTMP_Write(rtmp, output, output_len);
+
+            //RTMP Send out
+            free(output);
+        }
     }
-    if ((nal[0] & 0x1f) == 0x07 && (nal[0] & 0x60))  {
-        if (video_config_ok == true) {
-            RTMP_Log(RTMP_LOGERROR, "video config is already set");
-            //only send video seq set once;
-            return -1;
-        }
-        nal_n  = get_nal(&nal_len_n, &buf_offset, buf, total); //get pps
-        if (nal_n == NULL) {
-            RTMP_Log(RTMP_LOGERROR, "No Nal after SPS\n");
-            return -1;
-        }
-        body_len = nal_len + nal_len_n + 16;
-        output_len = body_len + FLV_TAG_HEAD_LEN + FLV_PRE_TAG_LEN;
-        output = malloc(output_len);
-        if (!output) {
-            LOGD("Memory is not allocated...");
-        }
-        // flv tag header
-        output[offset++] = 0x09; //tagtype video
-        output[offset++] = (uint8_t)(body_len >> 16); //data len
-        output[offset++] = (uint8_t)(body_len >> 8); //data len
-        output[offset++] = (uint8_t)(body_len); //data len
-        output[offset++] = (uint8_t)(ts >> 16); //time stamp
-        output[offset++] = (uint8_t)(ts >> 8); //time stamp
-        output[offset++] = (uint8_t)(ts); //time stamp
-        output[offset++] = (uint8_t)(ts >> 24); //time stamp
-        output[offset++] = abs_ts; //stream id 0
-        output[offset++] = 0x00; //stream id 0
-        output[offset++] = 0x00; //stream id 0
-
-        //flv VideoTagHeader
-        output[offset++] = 0x17; //key frame, AVC
-        output[offset++] = 0x00; //avc sequence header
-        output[offset++] = 0x00; //composit time ??????????
-        output[offset++] = 0x00; // composit time
-        output[offset++] = 0x00; //composit time
-
-        //flv VideoTagBody --AVCDecoderCOnfigurationRecord
-        output[offset++] = 0x01; //configurationversion
-        output[offset++] = nal[1]; //avcprofileindication
-        output[offset++] = nal[2]; //profilecompatibilty
-        output[offset++] = nal[3]; //avclevelindication
-        output[offset++] = 0xff; //reserved + lengthsizeminusone
-        output[offset++] = 0xe1; //numofsequenceset
-        output[offset++] = (uint8_t)(nal_len >> 8); //sequence parameter set length high 8 bits
-        output[offset++] = (uint8_t)(nal_len); //sequence parameter set  length low 8 bits
-        memcpy(output + offset, nal, nal_len); //H264 sequence parameter set
-        offset += nal_len;
-        output[offset++] = 0x01; //numofpictureset
-        output[offset++] = (uint8_t)(nal_len_n >> 8); //picture parameter set length high 8 bits
-        output[offset++] = (uint8_t)(nal_len_n); //picture parameter set length low 8 bits
-        memcpy(output + offset, nal_n, nal_len_n); //H264 picture parameter set
-
-        //no need set pre_tag_size ,RTMP NO NEED
-        // flv test
-
-        offset += nal_len_n;
-        uint32_t fff = body_len + FLV_TAG_HEAD_LEN;
-        output[offset++] = (uint8_t)(fff >> 24); //data len
-        output[offset++] = (uint8_t)(fff >> 16); //data len
-        output[offset++] = (uint8_t)(fff >> 8); //data len
-        output[offset++] = (uint8_t)(fff); //data len
-
-        if (g_file_handle) {
-            fwrite(output, output_len, 1, g_file_handle);
-        }
-        val = RTMP_Write(rtmp, output, output_len);
-        //RTMP Send out
-        free(output);
-        video_config_ok = true;
-    }
-    else if ((nal[0] & 0x1f) == 5 || ((nal[0] & 0x1f) == 28 || (nal[0] & 0x1f) == 29) && (nal[1] & 0x1f) == 5 && nal[1] & 0x80)
-    {
-        body_len = nal_len + 5 + 4; //flv VideoTagHeader +  NALU length
-        output_len = body_len + FLV_TAG_HEAD_LEN + FLV_PRE_TAG_LEN;
-        output = malloc(output_len);
-        if (!output) {
-            LOGD("Memory is not allocated...");
-        }
-        // flv tag header
-        output[offset++] = 0x09; //tagtype video
-        output[offset++] = (uint8_t)(body_len >> 16); //data len
-        output[offset++] = (uint8_t)(body_len >> 8); //data len
-        output[offset++] = (uint8_t)(body_len); //data len
-        output[offset++] = (uint8_t)(ts >> 16); //time stamp
-        output[offset++] = (uint8_t)(ts >> 8); //time stamp
-        output[offset++] = (uint8_t)(ts); //time stamp
-        output[offset++] = (uint8_t)(ts >> 24); //time stamp
-        output[offset++] = abs_ts; //stream id 0
-        output[offset++] = 0x00; //stream id 0
-        output[offset++] = 0x00; //stream id 0
-
-        //flv VideoTagHeader
-        output[offset++] = 0x17; //key frame, AVC
-        output[offset++] = 0x01; //avc NALU unit
-        output[offset++] = 0x00; //composit time ??????????
-        output[offset++] = 0x00; // composit time
-        output[offset++] = 0x00; //composit time
-
-        output[offset++] = (uint8_t)(nal_len >> 24); //nal length
-        output[offset++] = (uint8_t)(nal_len >> 16); //nal length
-        output[offset++] = (uint8_t)(nal_len >> 8); //nal length
-        output[offset++] = (uint8_t)(nal_len); //nal length
-        memcpy(output + offset, nal, nal_len);
-
-        //no need set pre_tag_size ,RTMP NO NEED
-
-        offset += nal_len;
-        uint32_t fff = body_len + FLV_TAG_HEAD_LEN;
-        output[offset++] = (uint8_t)(fff >> 24); //data len
-        output[offset++] = (uint8_t)(fff >> 16); //data len
-        output[offset++] = (uint8_t)(fff >> 8); //data len
-        output[offset++] = (uint8_t)(fff); //data len
-
-        if (g_file_handle) {
-            fwrite(output, output_len, 1, g_file_handle);
-        }
-        val = RTMP_Write(rtmp, output, output_len);
-        //RTMP Send out
-        free(output);
-    }
-
-    else if ((nal[0] & 0x1f) == 0x01)
-    {
-        body_len = nal_len + 5 + 4; //flv VideoTagHeader +  NALU length
-        output_len = body_len + FLV_TAG_HEAD_LEN + FLV_PRE_TAG_LEN;
-        output = malloc(output_len);
-        if (!output) {
-            LOGD("Memory is not allocated...");
-        }
-        // flv tag header
-        output[offset++] = 0x09; //tagtype video
-        output[offset++] = (uint8_t)(body_len >> 16); //data len
-        output[offset++] = (uint8_t)(body_len >> 8); //data len
-        output[offset++] = (uint8_t)(body_len); //data len
-        output[offset++] = (uint8_t)(ts >> 16); //time stamp
-        output[offset++] = (uint8_t)(ts >> 8); //time stamp
-        output[offset++] = (uint8_t)(ts); //time stamp
-        output[offset++] = (uint8_t)(ts >> 24); //time stamp
-        output[offset++] = abs_ts; //stream id 0
-        output[offset++] = 0x00; //stream id 0
-        output[offset++] = 0x00; //stream id 0
-
-        //flv VideoTagHeader
-        output[offset++] = 0x27; //not key frame, AVC
-        output[offset++] = 0x01; //avc NALU unit
-        output[offset++] = 0x00; //composit time ??????????
-        output[offset++] = 0x00; // composit time
-        output[offset++] = 0x00; //composit time
-
-        output[offset++] = (uint8_t)(nal_len >> 24); //nal length
-        output[offset++] = (uint8_t)(nal_len >> 16); //nal length
-        output[offset++] = (uint8_t)(nal_len >> 8); //nal length
-        output[offset++] = (uint8_t)(nal_len); //nal length
-        memcpy(output + offset, nal, nal_len);
-
-        //no need set pre_tag_size ,RTMP NO NEED
-
-        offset += nal_len;
-        uint32_t fff = body_len + FLV_TAG_HEAD_LEN;
-        output[offset++] = (uint8_t)(fff >> 24); //data len
-        output[offset++] = (uint8_t)(fff >> 16); //data len
-        output[offset++] = (uint8_t)(fff >> 8); //data len
-        output[offset++] = (uint8_t)(fff); //data len
-
-        if (g_file_handle) {
-            fwrite(output, output_len, 1, g_file_handle);
-        }
-        val = RTMP_Write(rtmp, output, output_len);
-
-        //RTMP Send out
-        free(output);
-    }
-
     return (val > 0) ? 0: -1;
 }
