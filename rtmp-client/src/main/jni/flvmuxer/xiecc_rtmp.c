@@ -229,6 +229,7 @@ int rtmp_close(RTMP* rtmp) {
         RTMP_Free(rtmp);
         rtmp = NULL;
     }
+    return 0;
 }
 
 int rtmp_is_connected(RTMP* rtmp)
@@ -441,7 +442,7 @@ int rtmp_sender_write_video_frame(RTMP* rtmp, uint8_t *data,
     uint32_t offset = 0;
     uint32_t body_len;
     uint32_t output_len;
-    uint32_t buf_offset_n;
+    uint8_t * buf_offset_n;
 
     buf = data;
     buf_offset = data;
