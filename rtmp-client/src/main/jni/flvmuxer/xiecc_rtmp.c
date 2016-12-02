@@ -443,6 +443,7 @@ int rtmp_sender_write_video_frame(RTMP* rtmp, uint8_t *data,
     uint32_t body_len;
     uint32_t output_len;
     uint8_t * buf_offset_n;
+    uint8_t * buf_offset_start;
 
     buf = data;
     buf_offset = data;
@@ -453,6 +454,7 @@ int rtmp_sender_write_video_frame(RTMP* rtmp, uint8_t *data,
 
     while(buf_offset < data + total) {
         offset = 0;
+        buf_offset_start = buf_offset;
 
         nal = get_nal(&nal_len, &buf_offset, buf, total);
         if (nal == NULL) {
@@ -533,15 +535,12 @@ int rtmp_sender_write_video_frame(RTMP* rtmp, uint8_t *data,
         {
             body_len = nal_len + 5 + 4; //flv VideoTagHeader +  NALU length
             buf_offset_n = buf_offset;
-            nal_n  = get_nal(&nal_len_n, &buf_offset_n, buf, total); //get pps
-            if (nal_n != NULL) {
-                if((nal_n[0] & 0x1f) == 5 || ((nal_n[0] & 0x1f) == 28 || (nal_n[0] & 0x1f) == 29) && (nal_n[1] & 0x1f) == 5 && nal_n[1] & 0x80) {
-                    body_len += nal_len_n + 4;
-                    buf_offset = buf_offset_n;
-                } else {
-                    nal_n = NULL;
+            while (1) {
+                nal_n  = get_nal(&nal_len_n, &buf_offset_n, buf, total); // followup slice
+                if (nal_n == NULL) {
+                    break;
                 }
-
+                body_len += nal_len_n + 4;
             }
             output_len = body_len + FLV_TAG_HEAD_LEN + FLV_PRE_TAG_LEN;
             output = malloc(output_len);
@@ -568,20 +567,18 @@ int rtmp_sender_write_video_frame(RTMP* rtmp, uint8_t *data,
             output[offset++] = 0x00; // composit time
             output[offset++] = 0x00; //composit time
 
-            output[offset++] = (uint8_t)(nal_len >> 24); //nal length
-            output[offset++] = (uint8_t)(nal_len >> 16); //nal length
-            output[offset++] = (uint8_t)(nal_len >> 8); //nal length
-            output[offset++] = (uint8_t)(nal_len); //nal length
-            memcpy(output + offset, nal, nal_len);
-            offset += nal_len;
-
-            if(nal_n) {
-                output[offset++] = (uint8_t)(nal_len_n >> 24); //nal length
-                output[offset++] = (uint8_t)(nal_len_n >> 16); //nal length
-                output[offset++] = (uint8_t)(nal_len_n >> 8); //nal length
-                output[offset++] = (uint8_t)(nal_len_n); //nal length
-                memcpy(output + offset, nal_n, nal_len_n);
-                offset += nal_len_n;
+            buf_offset = buf_offset_start;
+            while(1) {
+                nal  = get_nal(&nal_len, &buf_offset, buf, total);
+                if (nal == NULL) {
+                    break;
+                }
+                output[offset++] = (uint8_t)(nal_len >> 24); //nal length
+                output[offset++] = (uint8_t)(nal_len >> 16); //nal length
+                output[offset++] = (uint8_t)(nal_len >> 8); //nal length
+                output[offset++] = (uint8_t)(nal_len); //nal length
+                memcpy(output + offset, nal, nal_len);
+                offset += nal_len;
             }
 
             //no need set pre_tag_size ,RTMP NO NEED
@@ -605,16 +602,14 @@ int rtmp_sender_write_video_frame(RTMP* rtmp, uint8_t *data,
         {
             body_len = nal_len + 5 + 4; //flv VideoTagHeader +  NALU length
             buf_offset_n = buf_offset;
-            nal_n  = get_nal(&nal_len_n, &buf_offset_n, buf, total); //get pps
-            if (nal_n != NULL) {
-                if((nal_n[0] & 0x1f) == 0x01) {
-                    buf_offset = buf_offset_n;
-                    body_len += nal_len_n + 4;
-                } else {
-                    nal_n = NULL;
+            while (1) {
+                nal_n  = get_nal(&nal_len_n, &buf_offset_n, buf, total); // followup slice
+                if (nal_n == NULL) {
+                    break;
                 }
-
+                body_len += nal_len_n + 4;
             }
+            output_len = body_len + FLV_TAG_HEAD_LEN + FLV_PRE_TAG_LEN;
 
             output_len = body_len + FLV_TAG_HEAD_LEN + FLV_PRE_TAG_LEN;
             output = malloc(output_len);
@@ -641,25 +636,19 @@ int rtmp_sender_write_video_frame(RTMP* rtmp, uint8_t *data,
             output[offset++] = 0x00; // composit time
             output[offset++] = 0x00; //composit time
 
-            output[offset++] = (uint8_t)(nal_len >> 24); //nal length
-            output[offset++] = (uint8_t)(nal_len >> 16); //nal length
-            output[offset++] = (uint8_t)(nal_len >> 8); //nal length
-            output[offset++] = (uint8_t)(nal_len); //nal length
-            memcpy(output + offset, nal, nal_len);
-            offset += nal_len;
-
-            //no need set pre_tag_size ,RTMP NO NEED
-
-
-            if(nal_n) {
-                output[offset++] = (uint8_t)(nal_len_n >> 24); //nal length
-                output[offset++] = (uint8_t)(nal_len_n >> 16); //nal length
-                output[offset++] = (uint8_t)(nal_len_n >> 8); //nal length
-                output[offset++] = (uint8_t)(nal_len_n); //nal length
-                memcpy(output + offset, nal_n, nal_len_n);
-                offset += nal_len_n;
+            buf_offset = buf_offset_start;
+            while(1) {
+                nal  = get_nal(&nal_len, &buf_offset, buf, total);
+                if (nal == NULL) {
+                    break;
+                }
+                output[offset++] = (uint8_t)(nal_len >> 24); //nal length
+                output[offset++] = (uint8_t)(nal_len >> 16); //nal length
+                output[offset++] = (uint8_t)(nal_len >> 8); //nal length
+                output[offset++] = (uint8_t)(nal_len); //nal length
+                memcpy(output + offset, nal, nal_len);
+                offset += nal_len;
             }
-
 
             uint32_t fff = body_len + FLV_TAG_HEAD_LEN;
             output[offset++] = (uint8_t)(fff >> 24); //data len
