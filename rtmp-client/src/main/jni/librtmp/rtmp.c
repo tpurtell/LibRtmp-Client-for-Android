@@ -4333,7 +4333,14 @@ RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len)
   else
 #endif
     {
-      rc = send(sb->sb_socket, buf, len, 0);
+      rc = send(sb->sb_socket, buf, len, MSG_DONTWAIT);
+      if(rc == EAGAIN || rc == EWOULDBLOCK) {
+        usleep(100000);
+        rc = send(sb->sb_socket, buf, len, MSG_DONTWAIT);
+        if(rc == EAGAIN || rc == EWOULDBLOCK) {
+          RTMP_Log(RTMP_LOGERROR, "Send buffer overwhelmed or connection dead ended");
+        }
+      }
     }
   return rc;
 }
