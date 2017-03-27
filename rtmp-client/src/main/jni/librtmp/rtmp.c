@@ -4319,7 +4319,7 @@ RTMPSockBuf_Fill(RTMPSockBuf *sb)
 int
 RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len)
 {
-  int rc;
+  int rc, retry;
 
 #ifdef _DEBUG
   fwrite(buf, 1, len, netstackdump);
@@ -4333,13 +4333,16 @@ RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len)
   else
 #endif
     {
-      rc = send(sb->sb_socket, buf, len, MSG_DONTWAIT);
-      if(rc == EAGAIN || rc == EWOULDBLOCK) {
-        usleep(100000);
+      for(retry = 0; retry < 80; ++retry) {
         rc = send(sb->sb_socket, buf, len, MSG_DONTWAIT);
-        if(rc == EAGAIN || rc == EWOULDBLOCK) {
-          RTMP_Log(RTMP_LOGERROR, "Send buffer overwhelmed or connection dead ended");
+        if(rc < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+          usleep(100000);
+        } else {
+            break;
         }
+      }
+      if(rc < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+        RTMP_Log(RTMP_LOGERROR, "Send buffer overwhelmed or connection dead ended");
       }
     }
   return rc;
