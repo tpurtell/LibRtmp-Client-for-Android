@@ -69,6 +69,10 @@ TLS_CTX RTMP_TLS_ctx;
 #define RTMP_SIG_SIZE 1536
 #define RTMP_LARGE_HEADER_SIZE 12
 
+#if INET6_ADDRSTRLEN > 46
+#error INET6_ADDRSTRLEN has changed, buffer overflows are possible
+#endif
+
 static const int packetSize[] = { 12, 8, 4, 1 };
 
 int RTMP_ctrlC;
@@ -335,6 +339,7 @@ RTMP_Init(RTMP *r)
 
   memset(r, 0, sizeof(RTMP));
   r->m_sb.sb_socket = -1;
+  r->m_sb.sb_addr[0] = 0;
   r->m_inChunkSize = RTMP_DEFAULT_CHUNKSIZE;
   r->m_outChunkSize = RTMP_DEFAULT_CHUNKSIZE;
   r->m_nBufferMS = 30000;
@@ -369,6 +374,12 @@ int
 RTMP_Socket(RTMP *r)
 {
   return r->m_sb.sb_socket;
+}
+
+const char *
+RTMP_ServerIP(RTMP *r)
+{
+  return r->m_sb.sb_addr;
 }
 
 int
@@ -1064,13 +1075,16 @@ RTMP_Connect(RTMP *r, RTMPPacket *cp)
     {
       /* Connect via SOCKS */
       if (!add_addr_info(&service, &r->Link.sockshost, r->Link.socksport))
-	return FALSE;
+        return FALSE;
     }
   else
     {
       /* Connect directly */
       if (!add_addr_info(&service, &r->Link.hostname, r->Link.port))
-	return FALSE;
+        return FALSE;
+      if (inet_ntop(service.sin_family, &service.sin_addr, r->m_sb.sb_addr, INET6_ADDRSTRLEN) == NULL) {
+        r->m_sb.sb_addr[0] = 0;
+      }
     }
 
   if (!RTMP_Connect0(r, (struct sockaddr *)&service))
@@ -1089,6 +1103,9 @@ SocksNegotiate(RTMP *r)
   memset(&service, 0, sizeof(struct sockaddr_in));
 
   add_addr_info(&service, &r->Link.hostname, r->Link.port);
+  if (inet_ntop(service.sin_family, &service.sin_addr, r->m_sb.sb_addr, INET6_ADDRSTRLEN) == NULL) {
+    r->m_sb.sb_addr[0] = 0;
+  }
   addr = htonl(service.sin_addr.s_addr);
 
   {

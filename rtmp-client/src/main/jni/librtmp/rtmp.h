@@ -130,6 +130,7 @@ extern "C"
     int sb_size;		/* number of unprocessed bytes in buffer */
     char *sb_start;		/* pointer into sb_pBuffer of next byte to process */
     char sb_buf[RTMP_BUFFER_CACHE_SIZE];	/* data read from socket */
+    char sb_addr[46];  /* INET6_ADDRSTRLEN */
     int sb_timedout;
     void *sb_ssl;
   } RTMPSockBuf;
@@ -320,6 +321,7 @@ extern "C"
   int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue);
   int RTMP_SendChunk(RTMP *r, RTMPChunk *chunk);
   int RTMP_IsConnected(RTMP *r);
+  const char *RTMP_ServerIP(RTMP *r);
   int RTMP_Socket(RTMP *r);
   int RTMP_IsTimedout(RTMP *r);
   double RTMP_GetDuration(RTMP *r);
