@@ -39,7 +39,7 @@ public class RtmpClient {
      */
     public native int read(byte[] data, int offset, int size);
 
-    public native int write(byte[] data);
+    public native int write(byte[] data, int size);
 
     public native int seek(int seekTime);
 
@@ -52,6 +52,12 @@ public class RtmpClient {
      */
     public native int isConnected();
 
+    /**
+     * Returns a string representation of the IP address that the client has connected to.
+     * @return IP address on success. NULL if the client is not initialized. Empty string if client is initialized but no connection has been made.
+     */
+    public native String serverIP();
+    
     /**
      * closes the connection. Dont forget to call
      * @return 0

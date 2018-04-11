@@ -24,7 +24,7 @@ JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_read
  * Signature: ([CI)I
  */
 JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_write
-  (JNIEnv *, jobject, jcharArray, jint);
+  (JNIEnv *, jobject, jbyteArray, jint);
 
 /*
  * Class:     net_butterflytv_rtmp_client_RtmpClient
@@ -50,10 +50,24 @@ JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_pause
 JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_close
   (JNIEnv *, jobject);
 
+/*
+ * Class:     net_butterflytv_rtmp_client_RtmpClient
+ * Method:    open
+ * Signature: (Ljava/Lang/String;Z)I
+ */
 JNIEXPORT jint JNICALL
 Java_net_butterflytv_rtmp_1client_RtmpClient_open(JNIEnv *env, jobject instance, jstring url,
                                                    jboolean isPublishMode);
 
+/*
+ * Class:     net_butterflytv_rtmp_client_RtmpClient
+ * Method:    serverIP
+ * Signature: ()Ljava/lang/String;
+ */
+JNIEXPORT jstring JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_serverIP
+  (JNIEnv *, jobject);
+
+    
 JNIEXPORT jint JNICALL
 Java_net_butterflytv_rtmp_1client_RtmpClient_isConnected(JNIEnv *env, jobject instance);
 
