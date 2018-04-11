@@ -85,10 +85,10 @@ JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_read
 /*
  * Class:     net_butterflytv_rtmp_client_RtmpClient
  * Method:    write
- * Signature: ([CI)I
+ * Signature: ([BI)I
  */
 JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_write
-        (JNIEnv * env, jobject thiz, jcharArray data, jint size) {
+        (JNIEnv * env, jobject thiz, jbyteArray data, jint size) {
     jfieldID fid = (*env)->GetFieldID(env, (*env)->GetObjectClass(env, thiz), "rtmp", "J");
     jlong raw_rtmp =  (*env)->GetLongField(env, thiz, fid);
     RTMP *rtmp = (RTMP*)(*(void**)&raw_rtmp);
@@ -96,8 +96,15 @@ JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_write
     if(rtmp == NULL) {
         return -10000;
     }
+    jboolean isCopy;
+    jbyte *elements = (*env)->GetByteArrayElements(env, data, &isCopy);
 
-    return RTMP_Write(rtmp, data, size);
+    jint result = -1;
+    if (elements) {
+        result = RTMP_Write(rtmp, elements, size);
+        (*env)->ReleaseByteArrayElements(env, data, elements, JNI_ABORT);
+    }
+    return result;
 }
 
 /*

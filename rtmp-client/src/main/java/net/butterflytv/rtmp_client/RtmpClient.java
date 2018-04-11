@@ -39,7 +39,7 @@ public class RtmpClient {
      */
     public native int read(byte[] data, int offset, int size);
 
-    public native int write(byte[] data);
+    public native int write(byte[] data, int size);
 
     public native int seek(int seekTime);
 

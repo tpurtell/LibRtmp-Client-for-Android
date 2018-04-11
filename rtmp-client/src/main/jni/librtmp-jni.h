@@ -24,7 +24,7 @@ JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_read
  * Signature: ([CI)I
  */
 JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_write
-  (JNIEnv *, jobject, jcharArray, jint);
+  (JNIEnv *, jobject, jbyteArray, jint);
 
 /*
  * Class:     net_butterflytv_rtmp_client_RtmpClient
