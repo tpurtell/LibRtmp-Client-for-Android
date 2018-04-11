@@ -64,7 +64,7 @@ Java_net_butterflytv_rtmp_1client_RtmpClient_open(JNIEnv *env, jobject instance,
  * Method:    serverIP
  * Signature: ()Ljava/lang/String;
  */
-JNIEXPORT jint JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_serverIP
+JNIEXPORT jstring JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_serverIP
   (JNIEnv *, jobject);
 
     

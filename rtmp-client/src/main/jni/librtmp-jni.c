@@ -181,7 +181,7 @@ Java_net_butterflytv_rtmp_1client_RtmpClient_isConnected(JNIEnv *env, jobject th
 /*
  * Class:     net_butterflytv_rtmp_client_RtmpClient
  * Method:    serverIP
- * Signature: ()I
+ * Signature: ()Ljava/lang/String;
  */
 JNIEXPORT jstring JNICALL Java_net_butterflytv_rtmp_1client_RtmpClient_serverIP
         (JNIEnv * env, jobject thiz) {
