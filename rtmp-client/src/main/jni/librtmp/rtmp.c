@@ -281,14 +281,13 @@ RTMP_TLS_Init()
 #endif
 }
 
-#if 0
-/* This function has been removed from the build here because x509parse_keyfile() is hard to port to mbedTLS and we
- * never call it anyway. */
 void *
 RTMP_TLS_AllocServerContext(const char* cert, const char* key)
 {
   void *ctx = NULL;
-#ifdef CRYPTO
+#if defined(CRYPTO) && !defined(USE_MBEDTLS)
+/* mbedTLS has a very different approach to X509 certs and so we disable
+ * server APIs that use it when mbedTLS is enabled */
   if (!RTMP_TLS_ctx)
     RTMP_TLS_Init();
 #ifdef USE_POLARSSL
@@ -305,20 +304,6 @@ RTMP_TLS_AllocServerContext(const char* cert, const char* key)
       free(tc);
       return NULL;
   }
-#elif defined(USE_MBEDTLS)
-    tls_server_ctx *tc = ctx = calloc(1, sizeof(struct tls_server_ctx));
-    tc->dhm_P = my_dhm_P;
-    tc->dhm_G = my_dhm_G;
-    tc->hs = &RTMP_TLS_ctx->hs;
-    if (mbedtls_x509_crt_parse_file(&tc->cert, cert)) {
-        free(tc);
-        return NULL;
-    }
-    if (mbedtls_x509_key_parse_file(&tc->key, key, NULL)) {
-        mbedtls_x509_crt_free(&tc->cert);
-        free(tc);
-        return NULL;
-    }
 #elif defined(USE_GNUTLS) && !defined(NO_SSL)
   gnutls_certificate_allocate_credentials((gnutls_certificate_credentials*) &ctx);
   if (gnutls_certificate_set_x509_key_file(ctx, cert, key, GNUTLS_X509_FMT_PEM) != 0) {
@@ -339,7 +324,6 @@ RTMP_TLS_AllocServerContext(const char* cert, const char* key)
 #endif
   return ctx;
 }
-#endif
 
 void
 RTMP_TLS_FreeServerContext(void *ctx)
@@ -1034,12 +1018,12 @@ RTMP_Connect0(RTMP *r, struct sockaddr * service)
   return TRUE;
 }
 
-#if 0
-/* Removed because TLS servers are hard to port to mbedTLS, and because we never actually do this on the phone. */
 int
 RTMP_TLS_Accept(RTMP *r, void *ctx)
 {
-#if defined(CRYPTO) && !defined(NO_SSL)
+#if defined(CRYPTO) && !defined(NO_SSL) && !defined(USE_MBEDTLS)
+  /* mbedTLS has a very different approach to X509 certs and so we disable
+   * server APIs that use it when mbedTLS is enabled */
   TLS_server(ctx, r->m_sb.sb_ssl);
   TLS_setfd(r->m_sb.sb_ssl, r->m_sb.sb_socket);
   if (TLS_accept(r->m_sb.sb_ssl) < 0)
@@ -1052,7 +1036,6 @@ RTMP_TLS_Accept(RTMP *r, void *ctx)
   return FALSE;
 #endif
 }
-#endif
 
 int
 RTMP_Connect1(RTMP *r, RTMPPacket *cp)
