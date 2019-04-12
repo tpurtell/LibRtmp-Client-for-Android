@@ -41,6 +41,53 @@
 #define HMAC_crunch(ctx, buf, len)	sha2_hmac_update(&ctx, buf, len)
 #define HMAC_finish(ctx, dig, dlen)	dlen = SHA256_DIGEST_LENGTH; sha2_hmac_finish(&ctx, dig)
 #define HMAC_close(ctx)
+#elif defined(USE_MBEDTLS)
+/* PolarSSL dropped direct implementation of HMAC functions in 1.3, so in mbedTLS we must implement the primitives
+ * ourselves. Fortunately this is not too onerous. */
+#include <mbedtls/sha256.h>
+#ifndef SHA256_DIGEST_LENGTH
+#define SHA256_DIGEST_LENGTH    32
+#endif
+typedef struct hmac_ctx {
+    mbedtls_sha256_context sha_ctx;
+    unsigned char opad[64]; /* 64 here is the SHA-256 block size */
+} hmac_ctx;
+
+void HMAC_setup_fn(hmac_ctx *ctx, const unsigned char *key, size_t len)
+{
+    int i;
+    unsigned char hashed_key[SHA256_DIGEST_LENGTH], ipad[64];
+    for (i = 0; i < 64; ++i) {
+        ipad[i] = 0x36;
+        ctx->opad[i] = 0x5c;
+    }
+    if (len > 64) {
+        mbedtls_sha256_ret(key, len, hashed_key, 0);
+        len = SHA256_DIGEST_LENGTH;
+    }
+    for (i = 0; i < len; ++i) {
+        ipad[i] ^= key[i];
+        ctx->opad[i] ^= key[i];
+    }
+    mbedtls_sha256_starts_ret(&ctx->sha_ctx, 0);
+    mbedtls_sha256_update_ret(&ctx->sha_ctx, ipad, 64);
+}
+
+void HMAC_finish_fn(hmac_ctx *ctx, unsigned char *dig)
+{
+    unsigned char first_hash[SHA256_DIGEST_LENGTH];
+    mbedtls_sha256_finish_ret(&ctx->sha_ctx, first_hash);
+    mbedtls_sha256_starts_ret(&ctx->sha_ctx, 0);
+    mbedtls_sha256_update_ret(&ctx->sha_ctx, ctx->opad, 64);
+    mbedtls_sha256_update_ret(&ctx->sha_ctx, first_hash, SHA256_DIGEST_LENGTH);
+    mbedtls_sha256_finish_ret(&ctx->sha_ctx, dig);
+}
+
+#define HMAC_CTX hmac_ctx
+#define HMAC_setup(ctx, key, len)     HMAC_setup_fn(&ctx, key, len)
+#define HMAC_crunch(ctx, buf, len)    mbedtls_sha256_update_ret(&ctx.sha_ctx, buf, len)
+#define HMAC_finish(ctx, dig, dlen)   dlen = SHA256_DIGEST_LENGTH; HMAC_finish_fn(&ctx, dig)
+#define HMAC_close(ctx)
 #elif defined(USE_GNUTLS)
 #include <nettle/hmac.h>
 #ifndef SHA256_DIGEST_LENGTH
@@ -63,7 +110,7 @@
 #define HMAC_close(ctx)	HMAC_CTX_cleanup(&ctx)
 #endif
 
-extern void RTMP_TLS_Init();
+extern void RTMP_TLS_Init(void);
 extern TLS_CTX RTMP_TLS_ctx;
 
 #include <zlib.h>

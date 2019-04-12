@@ -76,6 +76,56 @@ static int MDH_compute_key(uint8_t *secret, size_t len, MP_t pub, MDH *dh)
   return 0;
 }
 
+#elif defined(USE_MBEDTLS)
+#include <mbedtls/dhm.h>
+typedef mbedtls_mpi * MP_t;
+#define MP_new(m)    m = malloc(sizeof(mbedtls_mpi)); mbedtls_mpi_init(m)
+#define MP_set_w(mpi, w)    mbedtls_mpi_lset(mpi, w)
+#define MP_cmp(u, v)    mbedtls_mpi_cmp_mpi(u, v)
+#define MP_set(u, v)    mbedtls_mpi_copy(u, v)
+#define MP_sub_w(mpi, w)    mbedtls_mpi_sub_int(mpi, mpi, w)
+#define MP_cmp_1(mpi)    mbedtls_mpi_cmp_int(mpi, 1)
+#define MP_modexp(r, y, q, p)    mbedtls_mpi_exp_mod(r, y, q, p, NULL)
+#define MP_free(mpi)    mbedtls_mpi_free(mpi); free(mpi)
+#define MP_gethex(u, hex, res)    MP_new(u); res = mbedtls_mpi_read_string(u, 16, hex) == 0
+#define MP_bytes(u)    mbedtls_mpi_size(u)
+#define MP_setbin(u,buf,len)    mbedtls_mpi_write_binary(u,buf,len)
+#define MP_getbin(u,buf,len)    MP_new(u); mbedtls_mpi_read_binary(u,buf,len)
+
+typedef struct MDH {
+    MP_t p;
+    MP_t g;
+    MP_t pub_key;
+    MP_t priv_key;
+    long length;
+    mbedtls_dhm_context ctx;
+} MDH;
+
+#define MDH_new()    calloc(1,sizeof(MDH))
+#define MDH_free(vp)    {MDH *_dh = vp; mbedtls_dhm_free(&_dh->ctx); MP_free(_dh->p); MP_free(_dh->g); MP_free(_dh->pub_key); MP_free(_dh->priv_key); free(_dh);}
+
+static int MDH_generate_key(MDH *dh)
+{
+    unsigned char out[2];
+    MP_set(&dh->ctx.P, dh->p);
+    MP_set(&dh->ctx.G, dh->g);
+    dh->ctx.len = 128;
+    mbedtls_dhm_make_public(&dh->ctx, 1024, out, 1, mbedtls_havege_random, &RTMP_TLS_ctx->hs);
+    MP_new(dh->pub_key);
+    MP_new(dh->priv_key);
+    MP_set(dh->pub_key, &dh->ctx.GX);
+    MP_set(dh->priv_key, &dh->ctx.X);
+    return 1;
+}
+
+static int MDH_compute_key(uint8_t *secret, size_t len, MP_t pub, MDH *dh)
+{
+    size_t true_output_ignored;
+    MP_set(&dh->ctx.GY, pub);
+    mbedtls_dhm_calc_secret(&dh->ctx, secret, len, &true_output_ignored, NULL, NULL);
+    return 0;
+}
+
 #elif defined(USE_GNUTLS)
 #include <gmp.h>
 #include <nettle/bignum.h>
@@ -317,7 +367,7 @@ DHGetPublicKey(MDH *dh, uint8_t *pubkey, size_t nPubkeyLen)
   if (!dh || !dh->pub_key)
     return 0;
 
-  len = MP_bytes(dh->pub_key);
+  len = (int)MP_bytes(dh->pub_key);
   if (len <= 0 || len > (int) nPubkeyLen)
     return 0;
 

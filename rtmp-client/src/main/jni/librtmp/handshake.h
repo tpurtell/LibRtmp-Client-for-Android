@@ -42,6 +42,32 @@ typedef arc4_context *	RC4_handle;
 #define RC4_encrypt2(h,l,s,d)	arc4_crypt(h,l,(unsigned char *)s,(unsigned char *)d)
 #define RC4_free(h)	free(h)
 
+#elif defined(USE_MBEDTLS)
+#include <mbedtls/sha256.h>
+#include <mbedtls/arc4.h>
+#ifndef SHA256_DIGEST_LENGTH
+#define SHA256_DIGEST_LENGTH    32
+#endif
+typedef struct hmac_ctx {
+    mbedtls_sha256_context sha_ctx;
+    unsigned char opad[64]; /* 64 here is the SHA-256 block size */
+} hmac_ctx;
+
+extern void HMAC_setup_fn(hmac_ctx *ctx, const unsigned char *key, size_t len);
+extern void HMAC_finish_fn(hmac_ctx *ctx, unsigned char *dig);
+#define HMAC_CTX hmac_ctx
+#define HMAC_setup(ctx, key, len)     HMAC_setup_fn(&ctx, key, len)
+#define HMAC_crunch(ctx, buf, len)    mbedtls_sha256_update_ret(&ctx.sha_ctx, buf, len)
+#define HMAC_finish(ctx, dig, dlen)   dlen = SHA256_DIGEST_LENGTH; HMAC_finish_fn(&ctx, dig)
+#define HMAC_close(ctx)
+
+typedef mbedtls_arc4_context *    RC4_handle;
+#define RC4_alloc(h)    *h = malloc(sizeof(mbedtls_arc4_context))
+#define RC4_setkey(h,l,k)    mbedtls_arc4_setup(h,k,l)
+#define RC4_encrypt(h,l,d)    mbedtls_arc4_crypt(h,l,(unsigned char *)d,(unsigned char *)d)
+#define RC4_encrypt2(h,l,s,d)    mbedtls_arc4_crypt(h,l,(unsigned char *)s,(unsigned char *)d)
+#define RC4_free(h)    free(h)
+
 #elif defined(USE_GNUTLS)
 #include <nettle/hmac.h>
 #include <nettle/arcfour.h>

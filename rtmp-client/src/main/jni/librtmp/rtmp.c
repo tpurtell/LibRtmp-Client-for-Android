@@ -51,6 +51,24 @@ static const char *my_dhm_P =
 
 static const char *my_dhm_G = "4";
 
+#elif defined(USE_MBEDTLS)
+#include <mbedtls/havege.h>
+#include <mbedtls/md5.h>
+#include <mbedtls/base64.h>
+#define MD5_DIGEST_LENGTH 16
+
+static const char *my_dhm_P =
+    "E4004C1F94182000103D883A448B3F80" \
+    "2CE4B44A83301270002C20D0321CFD00" \
+    "11CCEF784C26A400F43DFB901BCA7538" \
+    "F2C6B176001CF5A0FD16D2C48B1D0C1C" \
+    "F6AC8E1DA6BCC3B4E1F96B0564965300" \
+    "FFA1D0B601EB2800F489AA512C4B248C" \
+    "01F76949A60BB7F00A40B1EAB64BDD48" \
+    "E8A700D60B7F1200FA8E77B0A979DABF";
+
+static const char *my_dhm_G = "4";
+
 #elif defined(USE_GNUTLS)
 #include <gnutls/gnutls.h>
 #define MD5_DIGEST_LENGTH 16
@@ -236,6 +254,10 @@ RTMP_TLS_Init()
   /* Do this regardless of NO_SSL, we use havege for rtmpe too */
   RTMP_TLS_ctx = calloc(1,sizeof(struct tls_ctx));
   havege_init(&RTMP_TLS_ctx->hs);
+#elif defined(USE_MBEDTLS)
+    /* Do this regardless of NO_SSL, we use havege for rtmpe too */
+    RTMP_TLS_ctx = calloc(1,sizeof(struct tls_ctx));
+    mbedtls_havege_init(&RTMP_TLS_ctx->hs);
 #elif defined(USE_GNUTLS) && !defined(NO_SSL)
   /* Technically we need to initialize libgcrypt ourselves if
    * we're not going to call gnutls_global_init(). Ignoring this
@@ -263,7 +285,9 @@ void *
 RTMP_TLS_AllocServerContext(const char* cert, const char* key)
 {
   void *ctx = NULL;
-#ifdef CRYPTO
+#if defined(CRYPTO) && !defined(USE_MBEDTLS)
+/* mbedTLS has a very different approach to X509 certs and so we disable
+ * server APIs that use it when mbedTLS is enabled */
   if (!RTMP_TLS_ctx)
     RTMP_TLS_Init();
 #ifdef USE_POLARSSL
@@ -308,6 +332,10 @@ RTMP_TLS_FreeServerContext(void *ctx)
 #ifdef USE_POLARSSL
   x509_free(&((tls_server_ctx*)ctx)->cert);
   rsa_free(&((tls_server_ctx*)ctx)->key);
+  free(ctx);
+#elif defined(USE_MBEDTLS)
+  mbedtls_x509_crt_free(&((tls_server_ctx*)ctx)->cert);
+  mbedtls_rsa_free(&((tls_server_ctx*)ctx)->key);
   free(ctx);
 #elif defined(USE_GNUTLS) && !defined(NO_SSL)
   gnutls_certificate_free_credentials(ctx);
@@ -993,7 +1021,9 @@ RTMP_Connect0(RTMP *r, struct sockaddr * service)
 int
 RTMP_TLS_Accept(RTMP *r, void *ctx)
 {
-#if defined(CRYPTO) && !defined(NO_SSL)
+#if defined(CRYPTO) && !defined(NO_SSL) && !defined(USE_MBEDTLS)
+  /* mbedTLS has a very different approach to X509 certs and so we disable
+   * server APIs that use it when mbedTLS is enabled */
   TLS_server(ctx, r->m_sb.sb_ssl);
   TLS_setfd(r->m_sb.sb_ssl, r->m_sb.sb_socket);
   if (TLS_accept(r->m_sb.sb_ssl) < 0)
@@ -2490,6 +2520,18 @@ b64enc(const unsigned char *input, int length, char *output, int maxsize)
       RTMP_Log(RTMP_LOGDEBUG, "%s, error", __FUNCTION__);
       return 0;
     }
+#elif defined(USE_MBEDTLS)
+  size_t buf_size = maxsize - 1;
+  if(mbedtls_base64_encode((unsigned char *) output, buf_size, &buf_size, input, length) == 0)
+    {
+      output[buf_size] = '\0';
+      return 1;
+    }
+  else
+    {
+      RTMP_Log(RTMP_LOGDEBUG, "%s, error", __FUNCTION__);
+      return 0;
+    }
 #elif defined(USE_GNUTLS)
   if (BASE64_ENCODE_RAW_LENGTH(length) <= maxsize)
     base64_encode_raw((uint8_t*) output, length, input);
@@ -2527,6 +2569,11 @@ b64enc(const unsigned char *input, int length, char *output, int maxsize)
 #define MD5_Init(ctx)	md5_starts(ctx)
 #define MD5_Update(ctx,data,len)	md5_update(ctx,(unsigned char *)data,len)
 #define MD5_Final(dig,ctx)	md5_finish(ctx,dig)
+#elif defined(USE_MBEDTLS)
+#define MD5_CTX    mbedtls_md5_context
+#define MD5_Init(ctx)    mbedtls_md5_starts_ret(ctx)
+#define MD5_Update(ctx,data,len)    mbedtls_md5_update_ret(ctx,(unsigned char *)data,len)
+#define MD5_Final(dig,ctx)    mbedtls_md5_finish_ret(ctx,dig)
 #elif defined(USE_GNUTLS)
 typedef struct md5_ctx	MD5_CTX;
 #define MD5_Init(ctx)	md5_init(ctx)
