@@ -106,6 +106,48 @@ typedef struct tls_server_ctx {
 #define TLS_shutdown(s)	ssl_close_notify(s)
 #define TLS_close(s)	ssl_free(s); free(s)
 
+#elif defined(USE_MBEDTLS)
+#include <mbedtls/version.h>
+#include <mbedtls/net.h>
+#include <mbedtls/ssl.h>
+#include <mbedtls/havege.h>
+typedef struct tls_ctx {
+    mbedtls_havege_state hs;
+    mbedtls_ssl_config scf;
+    mbedtls_ssl_session ssn;
+} tls_ctx;
+typedef struct tls_server_ctx {
+    mbedtls_havege_state *hs;
+    mbedtls_x509_crt cert;
+    mbedtls_rsa_context key;
+    mbedtls_ssl_config scf;
+    mbedtls_ssl_session ssn;
+    const char *dhm_P, *dhm_G;
+} tls_server_ctx;
+
+#define TLS_CTX tls_ctx *
+#define TLS_client(ctx,s)    mbedtls_ssl_config_init(&ctx->scf);\
+mbedtls_ssl_config_defaults(&ctx->scf, MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT); \
+mbedtls_ssl_conf_authmode(&ctx->scf, MBEDTLS_SSL_VERIFY_NONE);\
+mbedtls_ssl_conf_rng(&ctx->scf, mbedtls_havege_random, &ctx->hs);\
+s = malloc(sizeof(mbedtls_ssl_context)); mbedtls_ssl_init(s);\
+mbedtls_ssl_setup(s,&ctx->scf);\
+mbedtls_ssl_set_session(s, &ctx->ssn)
+#define TLS_server(ctx,s)    mbedtls_ssl_config_init(&ctx->scf); mbedtls_ssl_config_defaults(&ctx->scf); \
+s = malloc(sizeof(mbedtls_ssl_context)); mbedtls_ssl_init(s);\
+mbedtls_ssl_conf_endpoint(&ctx->scf, MBEDTLS_SSL_IS_SERVER); mbedtls_ssl_conf_authmode(&ctx->scf, MBEDTLS_SSL_VERIFY_NONE);\
+mbedtls_ssl_conf_rng(&ctx->scf, mbedtls_havege_random, ((tls_server_ctx*)ctx)->hs);\
+mbedtls_ssl_set_session(s, &((tls_server_ctx*)ctx)->ssn);\
+mbedtls_ssl_conf_own_cert(&ctx->scf, &((tls_server_ctx*)ctx)->cert, &((tls_server_ctx*)ctx)->key);\
+mbedtls_ssl_conf_dh_param(&ctx->scf, ((tls_server_ctx*)ctx)->dhm_P, ((tls_server_ctx*)ctx)->dhm_G)
+#define TLS_setfd(s,fd)    mbedtls_ssl_set_bio(s, &fd, mbedtls_net_send, mbedtls_net_recv, mbedtls_net_recv_timeout)
+#define TLS_connect(s)    mbedtls_ssl_handshake(s)
+#define TLS_accept(s)    mbedtls_ssl_handshake(s)
+#define TLS_read(s,b,l)    mbedtls_ssl_read(s,(unsigned char *)b,l)
+#define TLS_write(s,b,l)    mbedtls_ssl_write(s,(unsigned char *)b,l)
+#define TLS_shutdown(s)    mbedtls_ssl_close_notify(s)
+#define TLS_close(s)    mbedtls_ssl_free(s); free(s)
+
 #elif defined(USE_GNUTLS)
 #include <gnutls/gnutls.h>
 typedef struct tls_ctx {
