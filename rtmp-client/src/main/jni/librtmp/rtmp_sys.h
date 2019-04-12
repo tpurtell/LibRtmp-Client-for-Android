@@ -140,6 +140,22 @@ mbedtls_ssl_conf_rng(&ctx->scf, mbedtls_havege_random, ((tls_server_ctx*)ctx)->h
 mbedtls_ssl_set_session(s, &((tls_server_ctx*)ctx)->ssn);\
 mbedtls_ssl_conf_own_cert(&ctx->scf, &((tls_server_ctx*)ctx)->cert, &((tls_server_ctx*)ctx)->key);\
 mbedtls_ssl_conf_dh_param(&ctx->scf, ((tls_server_ctx*)ctx)->dhm_P, ((tls_server_ctx*)ctx)->dhm_G)
+/********** WARNING ***** COMPATIBILITY WARNING ***** WARNING **********
+ * mbedtls_ssl_set_bio actually receives, when operating with the
+ * default send and receive callbacks, a pointer to a "network
+ * connection context" structure, and not actually a socket file
+ * descriptor as we are using it here. librtmp wants to manage socket
+ * lifecycles on its own, for the most part, and at the time of
+ * publication (mbed TLS 2.16.1) this is fine -- the network
+ * connection context structure has only one element, an integer
+ * representing the socket's file descriptor, and it's both valid and
+ * safe to cast the pointer to the struct to a pointer to its first
+ * element. If, however, in future versions of mbed TLS, this
+ * structure changes, we will either need to alter librtmp's use of
+ * socket descriptors, or (more likely) replace the default
+ * send/recv/recv-timeout routines with librtmp-specific ones.
+ ********** WARNING ***** COMPATIBILITY WARNING ***** WARNING **********/
+
 #define TLS_setfd(s,fd)    mbedtls_ssl_set_bio(s, &fd, mbedtls_net_send, mbedtls_net_recv, mbedtls_net_recv_timeout)
 #define TLS_connect(s)    mbedtls_ssl_handshake(s)
 #define TLS_accept(s)    mbedtls_ssl_handshake(s)
